@@ -3,32 +3,33 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"log"
-	"net/http"
 
+	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 )
 
 func main() {
-	http.HandleFunc("/ping", pingHandler)
-	http.HandleFunc("/employee", employeeHandler)
+	r := gin.Default()
 
-	http.ListenAndServe(":8000", nil)
+	r.GET("/ping", pingHandler)
+	r.GET("/employee", employeeHandler)
+
+	r.Run(":8000")
 }
 
-func pingHandler(w http.ResponseWriter, req *http.Request) {
-	fmt.Fprintf(w, "pong")
+func pingHandler(ctx *gin.Context) {
+	ctx.JSON(200, gin.H{"response": "pong!"})
 }
 
-func employeeHandler(w http.ResponseWriter, req *http.Request) {
+func employeeHandler(ctx *gin.Context) {
 	db, err := sql.Open("mysql", "root:password@tcp(localhost:2000)/test")
 	if err != nil {
 		log.Println(err)
 	}
 	defer db.Close()
 
-	id := req.URL.Query().Get("id")
+	id := ctx.Params.ByName("id")
 
 	row := db.QueryRow("SELECT id, name, age FROM employee where id=?", id)
 
@@ -43,16 +44,14 @@ func employeeHandler(w http.ResponseWriter, req *http.Request) {
 	err = row.Scan(&emp.ID, &emp.Name, &emp.Age)
 	if err != nil {
 		log.Println(err)
-		fmt.Fprintf(w, "OOPS!")
 		return
 	}
 
 	empBytes, err := json.Marshal(emp)
 	if err != nil {
 		log.Println(err)
-		fmt.Fprintf(w, "OOOPS!")
 		return
 	}
 
-	fmt.Fprintf(w, string(empBytes))
+	ctx.JSON(200, empBytes)
 }
